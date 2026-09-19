@@ -1,6 +1,7 @@
 import app from './app.js';
 import { config } from './config/env.config.js';
 import { testDbConnection, sequelize } from './config/db.config.js';
+import './models/User.model.js'; // Registers User model with Sequelize
 
 // ============================================================================
 // 🛠️ DATABASE SYNC ALTER FUNCTION
@@ -24,9 +25,9 @@ const server = app.listen(config.port, async () => {
   await testDbConnection();
 
   // --------------------------------------------------------------------------
-  // 👉 MANUAL SYNC: Jab bhi tables/fields alter karni hon, isko UNCOMMENT karein:
+  // 👉 DATABASE SYNC (ACTIVE): Tables sync and alter automatically
   // --------------------------------------------------------------------------
-  // await syncDatabase();
+  await syncDatabase();
 });
 
 // Graceful Shutdown handling

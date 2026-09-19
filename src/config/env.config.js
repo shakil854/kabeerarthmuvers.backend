@@ -18,4 +18,15 @@ export const config = {
     database: process.env.DB_NAME || 'kabeer_earth_movers',
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 10,
   },
+  jwt: {
+    secret: process.env.JWT_SECRET || 'kabeer_earth_movers_secret_fallback_key',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+  email: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.EMAIL_FROM || 'no-reply@kabeerearthmovers.com',
+  },
 };

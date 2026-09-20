@@ -2,6 +2,7 @@ import app from './app.js';
 import { config } from './config/env.config.js';
 import { testDbConnection, sequelize } from './config/db.config.js';
 import './models/User.model.js'; // Registers User model with Sequelize
+import './models/Category.model.js'; // Registers Category model with Sequelize
 
 // ============================================================================
 // 🛠️ DATABASE SYNC ALTER FUNCTION

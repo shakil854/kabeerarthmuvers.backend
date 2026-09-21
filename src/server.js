@@ -11,14 +11,48 @@ import './models/Sale.model.js'; // Registers Sale model with Sequelize
 import './models/Expense.model.js'; // Registers Expense model with Sequelize
 
 // ============================================================================
-// 🛠️ DATABASE SYNC ALTER FUNCTION
+// 🛠️ SMART NON-DESTRUCTIVE DATABASE SYNC FUNCTION
+// - Naya model banaye to nayi table create karega
+// - Purani table me naya field/column add kare to bina purane data ko chhede column add karega
+// - Purana data 100% safe rahega (kabhi DROP ya ALTER duplicate keys nahi karega)
 // ============================================================================
 const syncDatabase = async () => {
   try {
-    console.log('🔄 Syncing database tables...');
-    // Safe sync: Only creates tables if they do not exist, NEVER alters, drops, or deletes any data!
-    await sequelize.sync();
-    console.log('✅ Database tables synchronized successfully!');
+    console.log('🔄 Checking database tables & columns...');
+    const queryInterface = sequelize.getQueryInterface();
+    const existingTables = await queryInterface.showAllTables();
+
+    // Iterate through all registered models in Sequelize
+    for (const modelName of Object.keys(sequelize.models)) {
+      const model = sequelize.models[modelName];
+      const tableName = typeof model.getTableName === 'function' ? model.getTableName() : model.tableName;
+
+      const tableExists = existingTables.some(
+        (t) => t.toLowerCase() === tableName.toLowerCase()
+      );
+
+      if (!tableExists) {
+        console.log(`✨ Creating new table: '${tableName}'...`);
+        await model.sync();
+        console.log(`✅ Table '${tableName}' created successfully!`);
+      } else {
+        // Table exists -> check for any newly added columns in model
+        const currentColumns = await queryInterface.describeTable(tableName);
+        const existingColNames = Object.keys(currentColumns).map((c) => c.toLowerCase());
+        const modelAttributes = model.rawAttributes;
+
+        for (const [attrName, attrDef] of Object.entries(modelAttributes)) {
+          const fieldName = attrDef.field || attrName;
+          if (!existingColNames.includes(fieldName.toLowerCase())) {
+            console.log(`➕ Adding new field '${fieldName}' to existing table '${tableName}' without touching old data...`);
+            await queryInterface.addColumn(tableName, fieldName, attrDef);
+            console.log(`✅ Field '${fieldName}' added successfully to '${tableName}'!`);
+          }
+        }
+      }
+    }
+
+    console.log('✅ All database tables and columns are up to date! (Old data 100% preserved)');
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
   }

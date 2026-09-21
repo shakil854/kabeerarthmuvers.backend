@@ -4,6 +4,7 @@ import { testDbConnection, sequelize } from './config/db.config.js';
 import './models/User.model.js'; // Registers User model with Sequelize
 import './models/Category.model.js'; // Registers Category model with Sequelize
 import './models/Vehicle.model.js'; // Registers Vehicle model with Sequelize
+import './models/Supplier.model.js'; // Registers Supplier model with Sequelize
 
 // ============================================================================
 // 🛠️ DATABASE SYNC ALTER FUNCTION

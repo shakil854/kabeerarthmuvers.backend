@@ -3,6 +3,7 @@ import healthRoutes from './health.routes.js';
 import authRoutes from './auth.routes.js';
 import categoryRoutes from './category.routes.js';
 import vehicleRoutes from './vehicle.routes.js';
+import supplierRoutes from './supplier.routes.js';
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/vehicles', vehicleRoutes);
+router.use('/suppliers', supplierRoutes);
 
 // Export centralized router
 export default router;

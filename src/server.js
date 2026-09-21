@@ -7,6 +7,7 @@ import './models/Vehicle.model.js'; // Registers Vehicle model with Sequelize
 import './models/Supplier.model.js'; // Registers Supplier model with Sequelize
 import './models/Customer.model.js'; // Registers Customer model with Sequelize
 import './models/Purchase.model.js'; // Registers Purchase model with Sequelize
+import './models/Sale.model.js'; // Registers Sale model with Sequelize
 
 // ============================================================================
 // 🛠️ DATABASE SYNC ALTER FUNCTION

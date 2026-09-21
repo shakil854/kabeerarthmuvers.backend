@@ -8,14 +8,16 @@ import './models/Supplier.model.js'; // Registers Supplier model with Sequelize
 import './models/Customer.model.js'; // Registers Customer model with Sequelize
 import './models/Purchase.model.js'; // Registers Purchase model with Sequelize
 import './models/Sale.model.js'; // Registers Sale model with Sequelize
+import './models/Expense.model.js'; // Registers Expense model with Sequelize
 
 // ============================================================================
 // 🛠️ DATABASE SYNC ALTER FUNCTION
 // ============================================================================
 const syncDatabase = async () => {
   try {
-    console.log('🔄 Syncing database tables with { alter: true }...');
-    await sequelize.sync({ alter: true });
+    console.log('🔄 Syncing database tables...');
+    // Safe sync: Only creates tables if they do not exist, NEVER alters, drops, or deletes any data!
+    await sequelize.sync();
     console.log('✅ Database tables synchronized successfully!');
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);

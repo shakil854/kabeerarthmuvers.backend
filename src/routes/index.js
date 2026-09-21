@@ -4,6 +4,7 @@ import authRoutes from './auth.routes.js';
 import categoryRoutes from './category.routes.js';
 import vehicleRoutes from './vehicle.routes.js';
 import supplierRoutes from './supplier.routes.js';
+import customerRoutes from './customer.routes.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/auth', authRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/vehicles', vehicleRoutes);
 router.use('/suppliers', supplierRoutes);
+router.use('/customers', customerRoutes);
 
 // Export centralized router
 export default router;

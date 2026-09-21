@@ -1,6 +1,7 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.config.js';
 import Customer from './Customer.model.js';
+import Vehicle from './Vehicle.model.js';
 
 export const Sale = sequelize.define(
   'Sale',
@@ -21,6 +22,21 @@ export const Sale = sequelize.define(
       onDelete: 'RESTRICT',
       validate: {
         notNull: { msg: 'Customer is required' },
+      },
+    },
+    vehicleId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    vehicleNumber: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'vehicleNumber',
+          typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : null
+        );
       },
     },
     paymentMode: {
@@ -123,5 +139,8 @@ export const Sale = sequelize.define(
 // Define associations
 Sale.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
 Customer.hasMany(Sale, { foreignKey: 'customerId', as: 'sales' });
+
+Sale.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' });
+Vehicle.hasMany(Sale, { foreignKey: 'vehicleId', as: 'sales' });
 
 export default Sale;

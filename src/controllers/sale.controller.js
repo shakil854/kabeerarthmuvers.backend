@@ -5,6 +5,7 @@ import { ApiError } from '../utils/ApiError.js';
 import Sale from '../models/Sale.model.js';
 import Customer from '../models/Customer.model.js';
 import Category from '../models/Category.model.js';
+import Vehicle from '../models/Vehicle.model.js';
 
 /**
  * Standard include options for Sale queries
@@ -24,20 +25,30 @@ const saleIncludes = [
     ],
     required: false,
   },
+  {
+    model: Vehicle,
+    as: 'vehicle',
+    attributes: ['id', 'vehicleNumber', 'chassisNumber'],
+    required: false,
+  },
 ];
 
 /**
- * @desc Get all sales (with optional query filters: search, paymentMode, unit, customerId, paymentStatus)
+ * @desc Get all sales (with optional query filters: search, paymentMode, unit, customerId, paymentStatus, vehicleId)
  * @route GET /api/v1/sales
  * @access Public / Authenticated
  */
 export const getSales = asyncHandler(async (req, res) => {
-  const { search, paymentMode, unit, customerId, paymentStatus } = req.query;
+  const { search, paymentMode, unit, customerId, paymentStatus, vehicleId } = req.query;
 
   const whereClause = {};
 
   if (customerId && !isNaN(parseInt(customerId, 10))) {
     whereClause.customerId = parseInt(customerId, 10);
+  }
+
+  if (vehicleId && !isNaN(parseInt(vehicleId, 10))) {
+    whereClause.vehicleId = parseInt(vehicleId, 10);
   }
 
   if (paymentStatus && ['Pending', 'Paid'].includes(paymentStatus)) {
@@ -107,6 +118,8 @@ export const getSaleById = asyncHandler(async (req, res) => {
 export const createSale = asyncHandler(async (req, res) => {
   const {
     customerId,
+    vehicleId,
+    vehicleNumber,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -125,6 +138,22 @@ export const createSale = asyncHandler(async (req, res) => {
   const customer = await Customer.findByPk(customerId);
   if (!customer) {
     throw new ApiError(404, 'Selected customer does not exist.');
+  }
+
+  // Vehicle resolution (optional)
+  let finalVehicleId = null;
+  let finalVehicleNumber = null;
+  if (vehicleId) {
+    const parsedVId = parseInt(vehicleId, 10);
+    if (!isNaN(parsedVId)) {
+      const vRecord = await Vehicle.findByPk(parsedVId);
+      if (vRecord) {
+        finalVehicleId = vRecord.id;
+        finalVehicleNumber = vRecord.vehicleNumber;
+      }
+    }
+  } else if (vehicleNumber && typeof vehicleNumber === 'string' && vehicleNumber.trim()) {
+    finalVehicleNumber = vehicleNumber.trim().toUpperCase();
   }
 
   // Validation: Quantity and Price
@@ -156,6 +185,8 @@ export const createSale = asyncHandler(async (req, res) => {
 
   const newSale = await Sale.create({
     customerId: customer.id,
+    vehicleId: finalVehicleId,
+    vehicleNumber: finalVehicleNumber,
     paymentMode: validPaymentMode,
     paymentStatus: validPaymentStatus,
     paymentDate: finalPaymentDate,
@@ -185,6 +216,8 @@ export const updateSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     customerId,
+    vehicleId,
+    vehicleNumber,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -206,6 +239,27 @@ export const updateSale = asyncHandler(async (req, res) => {
       throw new ApiError(404, 'Selected customer does not exist.');
     }
     sale.customerId = customer.id;
+  }
+
+  // Vehicle resolution (optional)
+  if (vehicleId !== undefined) {
+    if (vehicleId) {
+      const parsedVId = parseInt(vehicleId, 10);
+      if (!isNaN(parsedVId)) {
+        const vRecord = await Vehicle.findByPk(parsedVId);
+        if (vRecord) {
+          sale.vehicleId = vRecord.id;
+          sale.vehicleNumber = vRecord.vehicleNumber;
+        } else {
+          sale.vehicleId = parsedVId;
+        }
+      }
+    } else {
+      sale.vehicleId = null;
+      sale.vehicleNumber = null;
+    }
+  } else if (vehicleNumber !== undefined) {
+    sale.vehicleNumber = vehicleNumber && vehicleNumber.trim() ? vehicleNumber.trim().toUpperCase() : null;
   }
 
   if (quantity !== undefined) {

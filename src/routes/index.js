@@ -8,6 +8,7 @@ import customerRoutes from './customer.routes.js';
 import purchaseRoutes from './purchase.routes.js';
 import saleRoutes from './sale.routes.js';
 import expenseRoutes from './expense.routes.js';
+import earningRoutes from './earning.routes.js';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use('/customers', customerRoutes);
 router.use('/purchases', purchaseRoutes);
 router.use('/sales', saleRoutes);
 router.use('/expenses', expenseRoutes);
+router.use('/earnings', earningRoutes);
 
 // Export centralized router
 export default router;

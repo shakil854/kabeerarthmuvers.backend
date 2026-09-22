@@ -43,7 +43,10 @@ export const getPurchases = asyncHandler(async (req, res) => {
 
   const whereClause = {};
 
-  if (supplierId && !isNaN(parseInt(supplierId, 10))) {
+  // If logged in as a supplier, strictly restrict to their own purchases
+  if (req.user && req.user.supplierId) {
+    whereClause.supplierId = req.user.supplierId;
+  } else if (supplierId && !isNaN(parseInt(supplierId, 10))) {
     whereClause.supplierId = parseInt(supplierId, 10);
   }
 

@@ -36,6 +36,26 @@ export const User = sequelize.define(
       defaultValue: 'customer',
       allowNull: false,
     },
+    customerId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'customers',
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    supplierId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'suppliers',
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
     otp: {
       type: DataTypes.STRING(10),
       allowNull: true,

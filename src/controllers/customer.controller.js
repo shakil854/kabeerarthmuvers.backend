@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import Customer from '../models/Customer.model.js';
 import Category from '../models/Category.model.js';
+import User from '../models/User.model.js';
 
 /**
  * @desc Get all customers (optional search query)
@@ -32,6 +33,12 @@ export const getCustomers = asyncHandler(async (req, res) => {
         model: Category,
         as: 'category',
         attributes: ['id', 'name'],
+        required: false,
+      },
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'mobile', 'email', 'role', 'createdAt'],
         required: false,
       },
     ],
@@ -192,5 +199,91 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, { id: Number(id) }, 'Customer deleted successfully')
+  );
+});
+
+/**
+ * @desc Create or reset user login for a customer
+ * @route POST /api/v1/customers/:id/create-login
+ * @access Private (Admin only)
+ */
+export const createCustomerLogin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { password, mobile, email } = req.body;
+
+  if (!password || password.length < 6) {
+    throw new ApiError(400, 'Password is required and must be at least 6 characters long.');
+  }
+
+  const customer = await Customer.findByPk(id);
+  if (!customer) {
+    throw new ApiError(404, 'Customer not found.');
+  }
+
+  const targetMobile = (mobile || customer.mobile || '').trim();
+  if (!targetMobile) {
+    throw new ApiError(400, 'Mobile number is required to create a login.');
+  }
+
+  const targetEmail = (email || `${targetMobile}@kabeer.app`).trim().toLowerCase();
+
+  // Check if a user already exists for this customer
+  let user = await User.findOne({ where: { customerId: customer.id } });
+
+  if (user) {
+    user.password = password;
+    user.mobile = targetMobile;
+    user.email = targetEmail;
+    await user.save();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          id: user.id,
+          name: user.name,
+          mobile: user.mobile,
+          email: user.email,
+          role: user.role,
+          customerId: user.customerId,
+        },
+        'Customer login credentials updated successfully!'
+      )
+    );
+  }
+
+  // Check if mobile or email is already used by another user
+  const existingWithSameContact = await User.findOne({
+    where: {
+      [Op.or]: [{ mobile: targetMobile }, { email: targetEmail }],
+    },
+  });
+
+  if (existingWithSameContact) {
+    throw new ApiError(409, `An account with mobile '${targetMobile}' or email '${targetEmail}' already exists.`);
+  }
+
+  user = await User.create({
+    name: customer.customerName,
+    mobile: targetMobile,
+    email: targetEmail,
+    password,
+    role: 'customer',
+    customerId: customer.id,
+  });
+
+  return res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        id: user.id,
+        name: user.name,
+        mobile: user.mobile,
+        email: user.email,
+        role: user.role,
+        customerId: user.customerId,
+      },
+      'Customer login created successfully! The customer can now log in using this mobile number and password.'
+    )
   );
 });

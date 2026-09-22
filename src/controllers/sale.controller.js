@@ -43,7 +43,10 @@ export const getSales = asyncHandler(async (req, res) => {
 
   const whereClause = {};
 
-  if (customerId && !isNaN(parseInt(customerId, 10))) {
+  // If logged in as a customer, strictly restrict to their own sales
+  if (req.user && req.user.customerId) {
+    whereClause.customerId = req.user.customerId;
+  } else if (customerId && !isNaN(parseInt(customerId, 10))) {
     whereClause.customerId = parseInt(customerId, 10);
   }
 

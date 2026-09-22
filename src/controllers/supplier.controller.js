@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import Supplier from '../models/Supplier.model.js';
 import Category from '../models/Category.model.js';
+import User from '../models/User.model.js';
 
 /**
  * @desc Get all suppliers (optional search query)
@@ -31,6 +32,12 @@ export const getSuppliers = asyncHandler(async (req, res) => {
         model: Category,
         as: 'category',
         attributes: ['id', 'name'],
+        required: false,
+      },
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'mobile', 'email', 'role', 'createdAt'],
         required: false,
       },
     ],
@@ -187,5 +194,91 @@ export const deleteSupplier = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, { id: Number(id) }, 'Supplier deleted successfully')
+  );
+});
+
+/**
+ * @desc Create or reset user login for a supplier
+ * @route POST /api/v1/suppliers/:id/create-login
+ * @access Private (Admin only)
+ */
+export const createSupplierLogin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { password, mobile, email } = req.body;
+
+  if (!password || password.length < 6) {
+    throw new ApiError(400, 'Password is required and must be at least 6 characters long.');
+  }
+
+  const supplier = await Supplier.findByPk(id);
+  if (!supplier) {
+    throw new ApiError(404, 'Supplier not found.');
+  }
+
+  const targetMobile = (mobile || supplier.mobile || '').trim();
+  if (!targetMobile) {
+    throw new ApiError(400, 'Mobile number is required to create a login.');
+  }
+
+  const targetEmail = (email || `${targetMobile}@kabeer.app`).trim().toLowerCase();
+
+  // Check if a user already exists for this supplier
+  let user = await User.findOne({ where: { supplierId: supplier.id } });
+
+  if (user) {
+    user.password = password;
+    user.mobile = targetMobile;
+    user.email = targetEmail;
+    await user.save();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          id: user.id,
+          name: user.name,
+          mobile: user.mobile,
+          email: user.email,
+          role: user.role,
+          supplierId: user.supplierId,
+        },
+        'Supplier login credentials updated successfully!'
+      )
+    );
+  }
+
+  // Check if mobile or email is already taken by another user
+  const existingWithSameContact = await User.findOne({
+    where: {
+      [Op.or]: [{ mobile: targetMobile }, { email: targetEmail }],
+    },
+  });
+
+  if (existingWithSameContact) {
+    throw new ApiError(409, `An account with mobile '${targetMobile}' or email '${targetEmail}' already exists.`);
+  }
+
+  user = await User.create({
+    name: supplier.name,
+    mobile: targetMobile,
+    email: targetEmail,
+    password,
+    role: 'customer',
+    supplierId: supplier.id,
+  });
+
+  return res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        id: user.id,
+        name: user.name,
+        mobile: user.mobile,
+        email: user.email,
+        role: user.role,
+        supplierId: user.supplierId,
+      },
+      'Supplier login created successfully! The supplier can now log in using this mobile number and password.'
+    )
   );
 });

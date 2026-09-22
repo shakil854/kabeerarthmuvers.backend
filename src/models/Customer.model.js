@@ -1,6 +1,7 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.config.js';
 import Category from './Category.model.js';
+import User from './User.model.js';
 
 export const Customer = sequelize.define(
   'Customer',
@@ -76,5 +77,7 @@ export const Customer = sequelize.define(
 // Define associations
 Customer.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 Category.hasMany(Customer, { foreignKey: 'categoryId', as: 'customers' });
+Customer.hasOne(User, { foreignKey: 'customerId', as: 'user' });
+User.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
 
 export default Customer;

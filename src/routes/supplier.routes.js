@@ -5,6 +5,7 @@ import {
   createSupplier,
   updateSupplier,
   deleteSupplier,
+  createSupplierLogin,
 } from '../controllers/supplier.controller.js';
 import { verifyJwt } from '../middlewares/auth.middleware.js';
 
@@ -16,6 +17,7 @@ router.get('/:id', getSupplierById);
 
 // Protected mutation routes
 router.post('/', verifyJwt, createSupplier);
+router.post('/:id/create-login', verifyJwt, createSupplierLogin);
 router.put('/:id', verifyJwt, updateSupplier);
 router.delete('/:id', verifyJwt, deleteSupplier);
 

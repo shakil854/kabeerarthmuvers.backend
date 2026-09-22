@@ -7,13 +7,13 @@ import {
   confirmPayment,
   deleteSale,
 } from '../controllers/sale.controller.js';
-import { verifyJwt } from '../middlewares/auth.middleware.js';
+import { verifyJwt, optionalJwt } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
 // Public / Authenticated read routes
-router.get('/', getSales);
-router.get('/:id', getSaleById);
+router.get('/', optionalJwt, getSales);
+router.get('/:id', optionalJwt, getSaleById);
 
 // Protected mutation routes
 router.post('/', verifyJwt, createSale);

@@ -65,6 +65,8 @@ export const register = asyncHandler(async (req, res) => {
     mobile: user.mobile,
     email: user.email,
     role: user.role,
+    customerId: user.customerId || null,
+    supplierId: user.supplierId || null,
     createdAt: user.createdAt,
   };
 
@@ -109,6 +111,8 @@ export const login = asyncHandler(async (req, res) => {
     mobile: user.mobile,
     email: user.email,
     role: user.role,
+    customerId: user.customerId || null,
+    supplierId: user.supplierId || null,
     createdAt: user.createdAt,
   };
 

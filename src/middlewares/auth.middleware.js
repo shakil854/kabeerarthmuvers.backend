@@ -47,3 +47,27 @@ export const authorizeRoles = (...roles) => {
     next();
   };
 };
+
+/**
+ * Attach user if JWT token is present, without throwing error if missing
+ */
+export const optionalJwt = asyncHandler(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret);
+    const user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password', 'otp', 'otpExpires'] },
+    });
+    if (user) {
+      req.user = user;
+    }
+  } catch {
+    // Ignore token errors for optional middleware
+  }
+  next();
+});

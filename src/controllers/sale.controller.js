@@ -93,6 +93,8 @@ export const getSales = asyncHandler(async (req, res) => {
       { '$customer.customerName$': { [Op.like]: term } },
       { '$customer.companyName$': { [Op.like]: term } },
       { '$customer.mobile$': { [Op.like]: term } },
+      { srNo: { [Op.like]: term } },
+      { trip: { [Op.like]: term } },
       { categoryName: { [Op.like]: term } },
       { '$category.name$': { [Op.like]: term } },
       { vehicleNumber: { [Op.like]: term } },
@@ -147,6 +149,8 @@ export const getSaleById = asyncHandler(async (req, res) => {
  */
 export const createSale = asyncHandler(async (req, res) => {
   const {
+    srNo,
+    trip,
     customerId,
     categoryId,
     categoryName,
@@ -250,6 +254,8 @@ export const createSale = asyncHandler(async (req, res) => {
   const finalSaleDate = saleDate || new Date().toISOString().split('T')[0];
 
   const newSale = await Sale.create({
+    srNo: srNo && typeof srNo === 'string' && srNo.trim() ? srNo.trim() : null,
+    trip: trip && typeof trip === 'string' && trip.trim() ? trip.trim() : null,
     customerId: customer.id,
     categoryId: finalCategoryId,
     categoryName: finalCategoryName,
@@ -285,6 +291,8 @@ export const createSale = asyncHandler(async (req, res) => {
 export const updateSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
+    srNo,
+    trip,
     customerId,
     categoryId,
     categoryName,
@@ -305,6 +313,14 @@ export const updateSale = asyncHandler(async (req, res) => {
   const sale = await Sale.findByPk(id);
   if (!sale) {
     throw new ApiError(404, 'Sale record not found.');
+  }
+
+  if (srNo !== undefined) {
+    sale.srNo = srNo && typeof srNo === 'string' && srNo.trim() ? srNo.trim() : null;
+  }
+
+  if (trip !== undefined) {
+    sale.trip = trip && typeof trip === 'string' && trip.trim() ? trip.trim() : null;
   }
 
   if (customerId) {

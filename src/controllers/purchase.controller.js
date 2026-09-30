@@ -88,6 +88,8 @@ export const getPurchases = asyncHandler(async (req, res) => {
     whereClause[Op.or] = [
       { '$supplier.name$': { [Op.like]: term } },
       { '$supplier.mobile$': { [Op.like]: term } },
+      { srNo: { [Op.like]: term } },
+      { trip: { [Op.like]: term } },
       { categoryName: { [Op.like]: term } },
       { '$category.name$': { [Op.like]: term } },
       { vehicleNumber: { [Op.like]: term } },
@@ -142,6 +144,8 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
  */
 export const createPurchase = asyncHandler(async (req, res) => {
   const {
+    srNo,
+    trip,
     supplierId,
     categoryId,
     categoryName,
@@ -239,6 +243,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
   const finalPurchaseDate = purchaseDate || new Date().toISOString().split('T')[0];
 
   const newPurchase = await Purchase.create({
+    srNo: srNo && typeof srNo === 'string' && srNo.trim() ? srNo.trim() : null,
+    trip: trip && typeof trip === 'string' && trip.trim() ? trip.trim() : null,
     supplierId: supplier.id,
     categoryId: resolvedCategoryId,
     categoryName: resolvedCategoryName,
@@ -276,6 +282,8 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     id,
   } = req.params;
   const {
+    srNo,
+    trip,
     supplierId,
     categoryId,
     categoryName,
@@ -296,6 +304,14 @@ export const updatePurchase = asyncHandler(async (req, res) => {
   const purchase = await Purchase.findByPk(id);
   if (!purchase) {
     throw new ApiError(404, 'Purchase record not found.');
+  }
+
+  if (srNo !== undefined) {
+    purchase.srNo = srNo && typeof srNo === 'string' && srNo.trim() ? srNo.trim() : null;
+  }
+
+  if (trip !== undefined) {
+    purchase.trip = trip && typeof trip === 'string' && trip.trim() ? trip.trim() : null;
   }
 
   if (supplierId) {

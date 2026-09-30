@@ -13,6 +13,28 @@ export const Sale = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
+    srNo: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'srNo',
+          typeof value === 'string' && value.trim() ? value.trim() : null
+        );
+      },
+    },
+    trip: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'trip',
+          typeof value === 'string' && value.trim() ? value.trim() : null
+        );
+      },
+    },
     customerId: {
       type: DataTypes.INTEGER,
       allowNull: false,

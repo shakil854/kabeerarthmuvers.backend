@@ -258,9 +258,14 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
     let pendingFromBills = 0;
     let pendingBillsCount = 0;
 
+    let totalTrips = 0;
     cSales.forEach((s) => {
       const amt = parseFloat(s.totalAmount) || (parseFloat(s.quantity) * parseFloat(s.price)) || 0;
       totalBilled += amt;
+      const t = parseFloat(s.trip);
+      if (!isNaN(t) && t > 0) {
+        totalTrips += t;
+      }
       if (s.paymentStatus === 'Paid') {
         paidInstant += amt;
       } else {
@@ -323,6 +328,7 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
       address: c.address,
       categoryName: c.category?.name,
       totalSalesCount: cSales.length,
+      totalTrips,
       pendingBillsCount,
       totalBilled: parseFloat(totalBilled.toFixed(2)),
       paidInstant: parseFloat(paidInstant.toFixed(2)),
@@ -345,6 +351,7 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
     const sPayments = supplierPaymentsMap[sup.id] || [];
 
     let totalBilled = 0;
+    let totalTrips = 0;
     let paidInstant = 0;
     let pendingFromBills = 0;
     let pendingBillsCount = 0;
@@ -352,6 +359,10 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
     sPurchases.forEach((p) => {
       const amt = parseFloat(p.totalAmount) || (parseFloat(p.quantity) * parseFloat(p.price)) || 0;
       totalBilled += amt;
+      const t = parseFloat(p.trip);
+      if (!isNaN(t) && t > 0) {
+        totalTrips += t;
+      }
       if (p.paymentStatus === 'Paid') {
         paidInstant += amt;
       } else {
@@ -410,6 +421,7 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
       address: sup.address,
       categoryName: sup.category?.name,
       totalPurchasesCount: sPurchases.length,
+      totalTrips,
       pendingBillsCount,
       totalBilled: parseFloat(totalBilled.toFixed(2)),
       paidInstant: parseFloat(paidInstant.toFixed(2)),

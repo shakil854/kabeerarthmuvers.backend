@@ -250,3 +250,56 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getMe = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, { user: req.user }, 'Current user profile'));
 });
+
+/**
+ * @desc Verify admin / security password before any deletion across all modules
+ * @route POST /api/v1/auth/verify-delete-password
+ * @access Public / Authenticated
+ */
+export const verifyDeletePassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  if (!password || typeof password !== 'string' || !password.trim()) {
+    throw new ApiError(400, 'Security password is required to confirm deletion.');
+  }
+
+  const cleanPass = password.trim();
+
+  // 1. If user is logged in via JWT, check their password first
+  if (req.user && req.user.id) {
+    const fullUser = await User.findByPk(req.user.id);
+    if (fullUser) {
+      const isMatch = await fullUser.comparePassword(cleanPass);
+      if (isMatch) {
+        return res.status(200).json(new ApiResponse(200, { verified: true }, 'Password verified successfully.'));
+      }
+    }
+  }
+
+  // 2. Check against any admin accounts in users table
+  const adminUsers = await User.findAll({ where: { role: 'admin' } });
+  for (const admin of adminUsers) {
+    const isMatch = await admin.comparePassword(cleanPass);
+    if (isMatch) {
+      return res.status(200).json(new ApiResponse(200, { verified: true }, 'Admin password verified successfully.'));
+    }
+  }
+
+  // 3. Check against any user in users table
+  const allUsers = await User.findAll();
+  for (const u of allUsers) {
+    const isMatch = await u.comparePassword(cleanPass);
+    if (isMatch) {
+      return res.status(200).json(new ApiResponse(200, { verified: true }, 'User password verified successfully.'));
+    }
+  }
+
+  // 4. Default master passwords / PINs fallback (e.g. admin123, 123456, kabeer123, 1234, admin)
+  const defaultMasterPasswords = ['admin123', '123456', 'kabeer123', '1234', 'admin', '854'];
+  if (defaultMasterPasswords.includes(cleanPass)) {
+    return res.status(200).json(new ApiResponse(200, { verified: true }, 'Master security password verified.'));
+  }
+
+  throw new ApiError(401, 'Galat password! Please enter correct password to delete.');
+});
+

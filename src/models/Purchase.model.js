@@ -2,6 +2,8 @@ import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.config.js';
 import Supplier from './Supplier.model.js';
 import Vehicle from './Vehicle.model.js';
+import Driver from './Driver.model.js';
+import Category from './Category.model.js';
 
 export const Purchase = sequelize.define(
   'Purchase',
@@ -24,6 +26,27 @@ export const Purchase = sequelize.define(
         notNull: { msg: 'Supplier is required' },
       },
     },
+    categoryId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Category,
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    categoryName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'categoryName',
+          typeof value === 'string' && value.trim() ? value.trim() : null
+        );
+      },
+    },
     vehicleId: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -42,6 +65,27 @@ export const Purchase = sequelize.define(
         this.setDataValue(
           'vehicleNumber',
           typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : null
+        );
+      },
+    },
+    driverId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Driver,
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    driverName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'driverName',
+          typeof value === 'string' && value.trim() ? value.trim() : null
         );
       },
     },
@@ -146,7 +190,13 @@ export const Purchase = sequelize.define(
 Purchase.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
 Supplier.hasMany(Purchase, { foreignKey: 'supplierId', as: 'purchases' });
 
+Purchase.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+Category.hasMany(Purchase, { foreignKey: 'categoryId', as: 'purchases' });
+
 Purchase.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' });
 Vehicle.hasMany(Purchase, { foreignKey: 'vehicleId', as: 'purchases' });
+
+Purchase.belongsTo(Driver, { foreignKey: 'driverId', as: 'driver' });
+Driver.hasMany(Purchase, { foreignKey: 'driverId', as: 'purchases' });
 
 export default Purchase;

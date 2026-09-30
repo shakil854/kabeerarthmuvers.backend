@@ -6,6 +6,7 @@ import Sale from '../models/Sale.model.js';
 import Customer from '../models/Customer.model.js';
 import Category from '../models/Category.model.js';
 import Vehicle from '../models/Vehicle.model.js';
+import Driver from '../models/Driver.model.js';
 
 /**
  * Standard include options for Sale queries
@@ -26,9 +27,21 @@ const saleIncludes = [
     required: false,
   },
   {
+    model: Category,
+    as: 'category',
+    attributes: ['id', 'name'],
+    required: false,
+  },
+  {
     model: Vehicle,
     as: 'vehicle',
     attributes: ['id', 'vehicleNumber', 'chassisNumber'],
+    required: false,
+  },
+  {
+    model: Driver,
+    as: 'driver',
+    attributes: ['id', 'name'],
     required: false,
   },
 ];
@@ -39,7 +52,7 @@ const saleIncludes = [
  * @access Public / Authenticated
  */
 export const getSales = asyncHandler(async (req, res) => {
-  const { search, paymentMode, unit, customerId, paymentStatus, vehicleId } = req.query;
+  const { search, paymentMode, unit, customerId, paymentStatus, vehicleId, driverId, categoryId } = req.query;
 
   const whereClause = {};
 
@@ -50,8 +63,16 @@ export const getSales = asyncHandler(async (req, res) => {
     whereClause.customerId = parseInt(customerId, 10);
   }
 
+  if (categoryId && !isNaN(parseInt(categoryId, 10))) {
+    whereClause.categoryId = parseInt(categoryId, 10);
+  }
+
   if (vehicleId && !isNaN(parseInt(vehicleId, 10))) {
     whereClause.vehicleId = parseInt(vehicleId, 10);
+  }
+
+  if (driverId && !isNaN(parseInt(driverId, 10))) {
+    whereClause.driverId = parseInt(driverId, 10);
   }
 
   if (paymentStatus && ['Pending', 'Paid'].includes(paymentStatus)) {
@@ -72,6 +93,12 @@ export const getSales = asyncHandler(async (req, res) => {
       { '$customer.customerName$': { [Op.like]: term } },
       { '$customer.companyName$': { [Op.like]: term } },
       { '$customer.mobile$': { [Op.like]: term } },
+      { categoryName: { [Op.like]: term } },
+      { '$category.name$': { [Op.like]: term } },
+      { vehicleNumber: { [Op.like]: term } },
+      { '$vehicle.vehicleNumber$': { [Op.like]: term } },
+      { driverName: { [Op.like]: term } },
+      { '$driver.name$': { [Op.like]: term } },
       { paymentMode: { [Op.like]: term } },
       { paymentStatus: { [Op.like]: term } },
       { note: { [Op.like]: term } },
@@ -121,8 +148,12 @@ export const getSaleById = asyncHandler(async (req, res) => {
 export const createSale = asyncHandler(async (req, res) => {
   const {
     customerId,
+    categoryId,
+    categoryName,
     vehicleId,
     vehicleNumber,
+    driverId,
+    driverName,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -143,6 +174,22 @@ export const createSale = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Selected customer does not exist.');
   }
 
+  // Category resolution (optional)
+  let finalCategoryId = null;
+  let finalCategoryName = categoryName ? categoryName.trim() : null;
+  if (categoryId) {
+    const parsedCatId = parseInt(categoryId, 10);
+    if (!isNaN(parsedCatId)) {
+      const cRecord = await Category.findByPk(parsedCatId);
+      if (cRecord) {
+        finalCategoryId = cRecord.id;
+        if (!finalCategoryName) {
+          finalCategoryName = cRecord.name;
+        }
+      }
+    }
+  }
+
   // Vehicle resolution (optional)
   let finalVehicleId = null;
   let finalVehicleNumber = null;
@@ -157,6 +204,22 @@ export const createSale = asyncHandler(async (req, res) => {
     }
   } else if (vehicleNumber && typeof vehicleNumber === 'string' && vehicleNumber.trim()) {
     finalVehicleNumber = vehicleNumber.trim().toUpperCase();
+  }
+
+  // Driver resolution (optional)
+  let finalDriverId = null;
+  let finalDriverName = driverName ? driverName.trim() : null;
+  if (driverId) {
+    const parsedDId = parseInt(driverId, 10);
+    if (!isNaN(parsedDId)) {
+      const dRecord = await Driver.findByPk(parsedDId);
+      if (dRecord) {
+        finalDriverId = dRecord.id;
+        if (!finalDriverName) {
+          finalDriverName = dRecord.name;
+        }
+      }
+    }
   }
 
   // Validation: Quantity and Price
@@ -188,8 +251,12 @@ export const createSale = asyncHandler(async (req, res) => {
 
   const newSale = await Sale.create({
     customerId: customer.id,
+    categoryId: finalCategoryId,
+    categoryName: finalCategoryName,
     vehicleId: finalVehicleId,
     vehicleNumber: finalVehicleNumber,
+    driverId: finalDriverId,
+    driverName: finalDriverName,
     paymentMode: validPaymentMode,
     paymentStatus: validPaymentStatus,
     paymentDate: finalPaymentDate,
@@ -219,8 +286,12 @@ export const updateSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     customerId,
+    categoryId,
+    categoryName,
     vehicleId,
     vehicleNumber,
+    driverId,
+    driverName,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -244,6 +315,27 @@ export const updateSale = asyncHandler(async (req, res) => {
     sale.customerId = customer.id;
   }
 
+  // Category resolution (optional)
+  if (categoryId !== undefined) {
+    if (categoryId) {
+      const parsedCatId = parseInt(categoryId, 10);
+      if (!isNaN(parsedCatId)) {
+        const cRecord = await Category.findByPk(parsedCatId);
+        if (cRecord) {
+          sale.categoryId = cRecord.id;
+          sale.categoryName = categoryName || cRecord.name;
+        } else {
+          sale.categoryId = parsedCatId;
+        }
+      }
+    } else {
+      sale.categoryId = null;
+      sale.categoryName = categoryName ? categoryName.trim() : null;
+    }
+  } else if (categoryName !== undefined) {
+    sale.categoryName = categoryName && categoryName.trim() ? categoryName.trim() : null;
+  }
+
   // Vehicle resolution (optional)
   if (vehicleId !== undefined) {
     if (vehicleId) {
@@ -263,6 +355,27 @@ export const updateSale = asyncHandler(async (req, res) => {
     }
   } else if (vehicleNumber !== undefined) {
     sale.vehicleNumber = vehicleNumber && vehicleNumber.trim() ? vehicleNumber.trim().toUpperCase() : null;
+  }
+
+  // Driver resolution (optional)
+  if (driverId !== undefined) {
+    if (driverId) {
+      const parsedDId = parseInt(driverId, 10);
+      if (!isNaN(parsedDId)) {
+        const dRecord = await Driver.findByPk(parsedDId);
+        if (dRecord) {
+          sale.driverId = dRecord.id;
+          sale.driverName = driverName || dRecord.name;
+        } else {
+          sale.driverId = parsedDId;
+        }
+      }
+    } else {
+      sale.driverId = null;
+      sale.driverName = driverName ? driverName.trim() : null;
+    }
+  } else if (driverName !== undefined) {
+    sale.driverName = driverName && driverName.trim() ? driverName.trim() : null;
   }
 
   if (quantity !== undefined) {

@@ -6,6 +6,7 @@ import Purchase from '../models/Purchase.model.js';
 import Supplier from '../models/Supplier.model.js';
 import Vehicle from '../models/Vehicle.model.js';
 import Category from '../models/Category.model.js';
+import Driver from '../models/Driver.model.js';
 
 /**
  * Standard include options for Purchase queries
@@ -26,9 +27,21 @@ const purchaseIncludes = [
     required: false,
   },
   {
+    model: Category,
+    as: 'category',
+    attributes: ['id', 'name'],
+    required: false,
+  },
+  {
     model: Vehicle,
     as: 'vehicle',
     attributes: ['id', 'vehicleNumber', 'chassisNumber', 'engineNumber'],
+    required: false,
+  },
+  {
+    model: Driver,
+    as: 'driver',
+    attributes: ['id', 'name'],
     required: false,
   },
 ];
@@ -39,7 +52,7 @@ const purchaseIncludes = [
  * @access Public / Authenticated
  */
 export const getPurchases = asyncHandler(async (req, res) => {
-  const { search, paymentMode, unit, supplierId, paymentStatus } = req.query;
+  const { search, paymentMode, unit, supplierId, paymentStatus, driverId, categoryId } = req.query;
 
   const whereClause = {};
 
@@ -48,6 +61,14 @@ export const getPurchases = asyncHandler(async (req, res) => {
     whereClause.supplierId = req.user.supplierId;
   } else if (supplierId && !isNaN(parseInt(supplierId, 10))) {
     whereClause.supplierId = parseInt(supplierId, 10);
+  }
+
+  if (categoryId && !isNaN(parseInt(categoryId, 10))) {
+    whereClause.categoryId = parseInt(categoryId, 10);
+  }
+
+  if (driverId && !isNaN(parseInt(driverId, 10))) {
+    whereClause.driverId = parseInt(driverId, 10);
   }
 
   if (paymentStatus && ['Pending', 'Paid'].includes(paymentStatus)) {
@@ -67,8 +88,12 @@ export const getPurchases = asyncHandler(async (req, res) => {
     whereClause[Op.or] = [
       { '$supplier.name$': { [Op.like]: term } },
       { '$supplier.mobile$': { [Op.like]: term } },
+      { categoryName: { [Op.like]: term } },
+      { '$category.name$': { [Op.like]: term } },
       { vehicleNumber: { [Op.like]: term } },
       { '$vehicle.vehicleNumber$': { [Op.like]: term } },
+      { driverName: { [Op.like]: term } },
+      { '$driver.name$': { [Op.like]: term } },
       { paymentMode: { [Op.like]: term } },
       { paymentStatus: { [Op.like]: term } },
       { note: { [Op.like]: term } },
@@ -118,8 +143,12 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
 export const createPurchase = asyncHandler(async (req, res) => {
   const {
     supplierId,
+    categoryId,
+    categoryName,
     vehicleId,
     vehicleNumber,
+    driverId,
+    driverName,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -164,6 +193,20 @@ export const createPurchase = asyncHandler(async (req, res) => {
   // Unit
   const validUnit = unit === 'Pcs' ? 'Pcs' : 'Ton';
 
+  // Category resolution
+  let resolvedCategoryId = null;
+  let resolvedCategoryName = categoryName ? categoryName.trim() : null;
+
+  if (categoryId) {
+    const category = await Category.findByPk(categoryId);
+    if (category) {
+      resolvedCategoryId = category.id;
+      if (!resolvedCategoryName) {
+        resolvedCategoryName = category.name;
+      }
+    }
+  }
+
   // Vehicle resolution
   let resolvedVehicleId = null;
   let resolvedVehicleNumber = vehicleNumber ? vehicleNumber.trim().toUpperCase() : null;
@@ -178,13 +221,31 @@ export const createPurchase = asyncHandler(async (req, res) => {
     }
   }
 
+  // Driver resolution
+  let resolvedDriverId = null;
+  let resolvedDriverName = driverName ? driverName.trim() : null;
+
+  if (driverId) {
+    const driver = await Driver.findByPk(driverId);
+    if (driver) {
+      resolvedDriverId = driver.id;
+      if (!resolvedDriverName) {
+        resolvedDriverName = driver.name;
+      }
+    }
+  }
+
   const totalAmount = parseFloat((parsedQty * parsedPrice).toFixed(2));
   const finalPurchaseDate = purchaseDate || new Date().toISOString().split('T')[0];
 
   const newPurchase = await Purchase.create({
     supplierId: supplier.id,
+    categoryId: resolvedCategoryId,
+    categoryName: resolvedCategoryName,
     vehicleId: resolvedVehicleId,
     vehicleNumber: resolvedVehicleNumber,
+    driverId: resolvedDriverId,
+    driverName: resolvedDriverName,
     paymentMode: validPaymentMode,
     paymentStatus: validPaymentStatus,
     paymentDate: finalPaymentDate,
@@ -211,11 +272,17 @@ export const createPurchase = asyncHandler(async (req, res) => {
  * @access Authenticated
  */
 export const updatePurchase = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const {
+    id,
+  } = req.params;
   const {
     supplierId,
+    categoryId,
+    categoryName,
     vehicleId,
     vehicleNumber,
+    driverId,
+    driverName,
     paymentMode,
     paymentStatus,
     paymentDate,
@@ -237,6 +304,21 @@ export const updatePurchase = asyncHandler(async (req, res) => {
       throw new ApiError(404, 'Selected supplier does not exist.');
     }
     purchase.supplierId = supplier.id;
+  }
+
+  if (categoryId !== undefined) {
+    if (categoryId) {
+      const category = await Category.findByPk(categoryId);
+      if (category) {
+        purchase.categoryId = category.id;
+        purchase.categoryName = categoryName || category.name;
+      }
+    } else {
+      purchase.categoryId = null;
+      purchase.categoryName = categoryName ? categoryName.trim() : null;
+    }
+  } else if (categoryName !== undefined) {
+    purchase.categoryName = categoryName ? categoryName.trim() : null;
   }
 
   if (quantity !== undefined) {
@@ -287,6 +369,21 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     }
   } else if (vehicleNumber !== undefined) {
     purchase.vehicleNumber = vehicleNumber ? vehicleNumber.trim().toUpperCase() : null;
+  }
+
+  if (driverId !== undefined) {
+    if (driverId) {
+      const driver = await Driver.findByPk(driverId);
+      if (driver) {
+        purchase.driverId = driver.id;
+        purchase.driverName = driverName || driver.name;
+      }
+    } else {
+      purchase.driverId = null;
+      purchase.driverName = driverName ? driverName.trim() : null;
+    }
+  } else if (driverName !== undefined) {
+    purchase.driverName = driverName ? driverName.trim() : null;
   }
 
   if (note !== undefined) {

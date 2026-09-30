@@ -2,6 +2,8 @@ import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.config.js';
 import Customer from './Customer.model.js';
 import Vehicle from './Vehicle.model.js';
+import Driver from './Driver.model.js';
+import Category from './Category.model.js';
 
 export const Sale = sequelize.define(
   'Sale',
@@ -24,6 +26,27 @@ export const Sale = sequelize.define(
         notNull: { msg: 'Customer is required' },
       },
     },
+    categoryId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Category,
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    categoryName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'categoryName',
+          typeof value === 'string' && value.trim() ? value.trim() : null
+        );
+      },
+    },
     vehicleId: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -36,6 +59,27 @@ export const Sale = sequelize.define(
         this.setDataValue(
           'vehicleNumber',
           typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : null
+        );
+      },
+    },
+    driverId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Driver,
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    driverName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'driverName',
+          typeof value === 'string' && value.trim() ? value.trim() : null
         );
       },
     },
@@ -140,7 +184,13 @@ export const Sale = sequelize.define(
 Sale.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
 Customer.hasMany(Sale, { foreignKey: 'customerId', as: 'sales' });
 
+Sale.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+Category.hasMany(Sale, { foreignKey: 'categoryId', as: 'sales' });
+
 Sale.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' });
 Vehicle.hasMany(Sale, { foreignKey: 'vehicleId', as: 'sales' });
+
+Sale.belongsTo(Driver, { foreignKey: 'driverId', as: 'driver' });
+Driver.hasMany(Sale, { foreignKey: 'driverId', as: 'sales' });
 
 export default Sale;

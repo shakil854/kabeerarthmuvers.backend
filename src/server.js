@@ -10,6 +10,7 @@ import './models/Purchase.model.js'; // Registers Purchase model with Sequelize
 import './models/Sale.model.js'; // Registers Sale model with Sequelize
 import './models/Expense.model.js'; // Registers Expense model with Sequelize
 import './models/Driver.model.js'; // Registers Driver model with Sequelize
+import './models/Payment.model.js'; // Registers Payment model with Sequelize
 
 // ============================================================================
 // 🛠️ SMART NON-DESTRUCTIVE DATABASE SYNC FUNCTION

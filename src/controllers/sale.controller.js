@@ -460,7 +460,7 @@ export const updateSale = asyncHandler(async (req, res) => {
  */
 export const confirmPayment = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { paymentDate } = req.body;
+  const { paymentDate, paymentMode } = req.body;
 
   const sale = await Sale.findByPk(id);
   if (!sale) {
@@ -469,6 +469,9 @@ export const confirmPayment = asyncHandler(async (req, res) => {
 
   sale.paymentStatus = 'Paid';
   sale.paymentDate = paymentDate || new Date().toISOString().split('T')[0];
+  if (paymentMode && ['Online', 'Cash'].includes(paymentMode)) {
+    sale.paymentMode = paymentMode;
+  }
   await sale.save();
 
   const updatedSale = await Sale.findByPk(id, {

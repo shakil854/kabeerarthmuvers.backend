@@ -254,7 +254,9 @@ export const createSale = asyncHandler(async (req, res) => {
 
   const parsedLoading = parseFloat(loadingCharge) || 0;
   const parsedRent = parseFloat(rent) || 0;
-  const totalAmount = parseFloat(((parsedQty * parsedPrice) - parsedLoading + parsedRent).toFixed(2));
+  const parsedTrip = parseInt(trip, 10);
+  const tripMultiplier = (!isNaN(parsedTrip) && parsedTrip > 0) ? parsedTrip : 1;
+  const totalAmount = parseFloat((((parsedQty * parsedPrice) - parsedLoading + parsedRent) * tripMultiplier).toFixed(2));
   const finalSaleDate = saleDate || new Date().toISOString().split('T')[0];
 
   const newSale = await Sale.create({
@@ -453,12 +455,14 @@ export const updateSale = asyncHandler(async (req, res) => {
     sale.saleDate = saleDate;
   }
 
-  // Recalculate total amount: (quantity * price) - loadingCharge + rent
+  // Recalculate total amount: ((quantity * price) - loadingCharge + rent) * trip
   const qty = parseFloat(sale.quantity) || 0;
   const prc = parseFloat(sale.price) || 0;
   const loading = parseFloat(sale.loadingCharge) || 0;
   const rentVal = parseFloat(sale.rent) || 0;
-  sale.totalAmount = parseFloat(((qty * prc) - loading + rentVal).toFixed(2));
+  const t = parseInt(sale.trip, 10);
+  const tripMultiplier = (!isNaN(t) && t > 0) ? t : 1;
+  sale.totalAmount = parseFloat((((qty * prc) - loading + rentVal) * tripMultiplier).toFixed(2));
 
   await sale.save();
 

@@ -208,7 +208,9 @@ export const Sale = sequelize.define(
         const prc = parseFloat(sale.price) || 0;
         const loading = parseFloat(sale.loadingCharge) || 0;
         const rent = parseFloat(sale.rent) || 0;
-        sale.totalAmount = parseFloat(((qty * prc) - loading + rent).toFixed(2));
+        const t = parseInt(sale.trip, 10);
+        const tripMultiplier = (!isNaN(t) && t > 0) ? t : 1;
+        sale.totalAmount = parseFloat((((qty * prc) - loading + rent) * tripMultiplier).toFixed(2));
       },
     },
   }

@@ -167,6 +167,16 @@ export const Sale = sequelize.define(
         },
       },
     },
+    loadingCharge: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0.00,
+    },
+    rent: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0.00,
+    },
     totalAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
@@ -196,7 +206,9 @@ export const Sale = sequelize.define(
       beforeSave: (sale) => {
         const qty = parseFloat(sale.quantity) || 0;
         const prc = parseFloat(sale.price) || 0;
-        sale.totalAmount = parseFloat((qty * prc).toFixed(2));
+        const loading = parseFloat(sale.loadingCharge) || 0;
+        const rent = parseFloat(sale.rent) || 0;
+        sale.totalAmount = parseFloat(((qty * prc) - loading + rent).toFixed(2));
       },
     },
   }

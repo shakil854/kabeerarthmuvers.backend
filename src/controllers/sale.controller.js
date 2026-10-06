@@ -164,6 +164,8 @@ export const createSale = asyncHandler(async (req, res) => {
     quantity,
     unit,
     price,
+    loadingCharge,
+    rent,
     note,
     saleDate,
   } = req.body;
@@ -250,7 +252,9 @@ export const createSale = asyncHandler(async (req, res) => {
   // Unit
   const validUnit = unit === 'Pcs' ? 'Pcs' : 'Ton';
 
-  const totalAmount = parseFloat((parsedQty * parsedPrice).toFixed(2));
+  const parsedLoading = parseFloat(loadingCharge) || 0;
+  const parsedRent = parseFloat(rent) || 0;
+  const totalAmount = parseFloat(((parsedQty * parsedPrice) - parsedLoading + parsedRent).toFixed(2));
   const finalSaleDate = saleDate || new Date().toISOString().split('T')[0];
 
   const newSale = await Sale.create({
@@ -269,6 +273,8 @@ export const createSale = asyncHandler(async (req, res) => {
     quantity: parsedQty,
     unit: validUnit,
     price: parsedPrice,
+    loadingCharge: parsedLoading,
+    rent: parsedRent,
     totalAmount,
     note: note && note.trim() ? note.trim() : null,
     saleDate: finalSaleDate,
@@ -306,6 +312,8 @@ export const updateSale = asyncHandler(async (req, res) => {
     quantity,
     unit,
     price,
+    loadingCharge,
+    rent,
     note,
     saleDate,
   } = req.body;
@@ -429,6 +437,14 @@ export const updateSale = asyncHandler(async (req, res) => {
     sale.unit = unit === 'Pcs' ? 'Pcs' : 'Ton';
   }
 
+  if (loadingCharge !== undefined) {
+    sale.loadingCharge = parseFloat(loadingCharge) || 0;
+  }
+
+  if (rent !== undefined) {
+    sale.rent = parseFloat(rent) || 0;
+  }
+
   if (note !== undefined) {
     sale.note = note && note.trim() ? note.trim() : null;
   }
@@ -437,10 +453,12 @@ export const updateSale = asyncHandler(async (req, res) => {
     sale.saleDate = saleDate;
   }
 
-  // Recalculate total amount
+  // Recalculate total amount: (quantity * price) - loadingCharge + rent
   const qty = parseFloat(sale.quantity) || 0;
   const prc = parseFloat(sale.price) || 0;
-  sale.totalAmount = parseFloat((qty * prc).toFixed(2));
+  const loading = parseFloat(sale.loadingCharge) || 0;
+  const rentVal = parseFloat(sale.rent) || 0;
+  sale.totalAmount = parseFloat(((qty * prc) - loading + rentVal).toFixed(2));
 
   await sale.save();
 

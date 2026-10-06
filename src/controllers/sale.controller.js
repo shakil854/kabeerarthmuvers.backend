@@ -156,6 +156,7 @@ export const createSale = asyncHandler(async (req, res) => {
     categoryName,
     vehicleId,
     vehicleNumber,
+    vehicleType,
     driverId,
     driverName,
     paymentMode,
@@ -251,6 +252,7 @@ export const createSale = asyncHandler(async (req, res) => {
 
   // Unit
   const validUnit = unit === 'Pcs' ? 'Pcs' : 'Ton';
+  const validVehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
 
   const parsedLoading = parseFloat(loadingCharge) || 0;
   const parsedRent = parseFloat(rent) || 0;
@@ -267,6 +269,7 @@ export const createSale = asyncHandler(async (req, res) => {
     categoryName: finalCategoryName,
     vehicleId: finalVehicleId,
     vehicleNumber: finalVehicleNumber,
+    vehicleType: validVehicleType,
     driverId: finalDriverId,
     driverName: finalDriverName,
     paymentMode: validPaymentMode,
@@ -306,6 +309,7 @@ export const updateSale = asyncHandler(async (req, res) => {
     categoryName,
     vehicleId,
     vehicleNumber,
+    vehicleType,
     driverId,
     driverName,
     paymentMode,
@@ -437,6 +441,10 @@ export const updateSale = asyncHandler(async (req, res) => {
 
   if (unit) {
     sale.unit = unit === 'Pcs' ? 'Pcs' : 'Ton';
+  }
+
+  if (vehicleType !== undefined) {
+    sale.vehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
   }
 
   if (loadingCharge !== undefined) {

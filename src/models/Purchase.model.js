@@ -90,6 +90,17 @@ export const Purchase = sequelize.define(
         );
       },
     },
+    vehicleType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: 'Gadi',
+      validate: {
+        isIn: {
+          args: [['Gadi', 'Tractor']],
+          msg: 'Vehicle type must be either Gadi or Tractor',
+        },
+      },
+    },
     driverId: {
       type: DataTypes.INTEGER,
       allowNull: true,

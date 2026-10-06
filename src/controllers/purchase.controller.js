@@ -151,6 +151,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
     categoryName,
     vehicleId,
     vehicleNumber,
+    vehicleType,
     driverId,
     driverName,
     paymentMode,
@@ -196,6 +197,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
 
   // Unit
   const validUnit = unit === 'Pcs' ? 'Pcs' : 'Ton';
+  const validVehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
 
   // Category resolution
   let resolvedCategoryId = null;
@@ -250,6 +252,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
     categoryName: resolvedCategoryName,
     vehicleId: resolvedVehicleId,
     vehicleNumber: resolvedVehicleNumber,
+    vehicleType: validVehicleType,
     driverId: resolvedDriverId,
     driverName: resolvedDriverName,
     paymentMode: validPaymentMode,
@@ -289,6 +292,7 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     categoryName,
     vehicleId,
     vehicleNumber,
+    vehicleType,
     driverId,
     driverName,
     paymentMode,
@@ -370,6 +374,10 @@ export const updatePurchase = asyncHandler(async (req, res) => {
 
   if (unit) {
     purchase.unit = unit === 'Pcs' ? 'Pcs' : 'Ton';
+  }
+
+  if (vehicleType !== undefined) {
+    purchase.vehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
   }
 
   if (vehicleId !== undefined) {

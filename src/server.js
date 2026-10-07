@@ -10,6 +10,9 @@ import './models/Purchase.model.js'; // Registers Purchase model with Sequelize
 import './models/Sale.model.js'; // Registers Sale model with Sequelize
 import './models/Expense.model.js'; // Registers Expense model with Sequelize
 import './models/Driver.model.js'; // Registers Driver model with Sequelize
+import './models/DriverAdvance.model.js'; // Registers DriverAdvance (Upad) model
+import './models/DriverLeave.model.js'; // Registers DriverLeave (Raja) model
+import './models/DriverSalary.model.js'; // Registers DriverSalary (Pagar) model
 import './models/Payment.model.js'; // Registers Payment model with Sequelize
 
 // ============================================================================

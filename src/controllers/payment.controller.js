@@ -156,7 +156,13 @@ export const createPayment = asyncHandler(async (req, res) => {
 export const deletePayment = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const payment = await Payment.findByPk(id);
+  // Extract pure numeric ID (handles e.g. "payment-12", "12", or 12)
+  const numericId = parseInt(String(id).replace(/\D/g, ''), 10);
+  if (isNaN(numericId) || numericId <= 0) {
+    throw new ApiError(400, 'Invalid payment ID.');
+  }
+
+  const payment = await Payment.findByPk(numericId);
   if (!payment) {
     throw new ApiError(404, 'Payment record not found.');
   }
@@ -164,7 +170,7 @@ export const deletePayment = asyncHandler(async (req, res) => {
   await payment.destroy();
 
   return res.status(200).json(
-    new ApiResponse(200, { id: parseInt(id, 10) }, 'Payment entry deleted successfully')
+    new ApiResponse(200, { id: numericId }, 'Payment entry deleted successfully')
   );
 });
 
@@ -313,6 +319,7 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
         type: 'PAYMENT_JAMA',
         id: `payment-${pm.id}`,
         rawId: pm.id,
+        paymentId: pm.id,
         date: pm.paymentDate,
         amount: parseFloat(pm.amount) || 0,
         paymentMode: pm.paymentMode,
@@ -407,6 +414,7 @@ export const getDebitSummary = asyncHandler(async (req, res) => {
         type: 'PAYMENT_BHUGTAN',
         id: `payment-${pm.id}`,
         rawId: pm.id,
+        paymentId: pm.id,
         date: pm.paymentDate,
         amount: parseFloat(pm.amount) || 0,
         paymentMode: pm.paymentMode,

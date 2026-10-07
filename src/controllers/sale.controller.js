@@ -229,10 +229,14 @@ export const createSale = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validation: Quantity and Price
-  const parsedQty = parseFloat(quantity);
-  if (isNaN(parsedQty) || parsedQty <= 0) {
-    throw new ApiError(400, 'Valid quantity greater than 0 is required.');
+  // Validation: Quantity (Optional) and Price (Required)
+  let parsedQty = null;
+  if (quantity !== undefined && quantity !== null && String(quantity).trim() !== '') {
+    const q = parseFloat(quantity);
+    if (isNaN(q) || q <= 0) {
+      throw new ApiError(400, 'Valid quantity greater than 0 is required if provided.');
+    }
+    parsedQty = q;
   }
 
   const parsedPrice = parseFloat(price);
@@ -250,15 +254,16 @@ export const createSale = asyncHandler(async (req, res) => {
     finalPaymentDate = paymentDate || new Date().toISOString().split('T')[0];
   }
 
-  // Unit
-  const validUnit = unit === 'Pcs' ? 'Pcs' : 'Ton';
-  const validVehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
+  // Unit & Vehicle Type
+  const validUnit = ['Ton', 'Pcs', 'Gadi', 'Tractor'].includes(unit) ? unit : (unit || 'Ton');
+  const validVehicleType = ['Gadi', 'Tractor'].includes(validUnit) ? validUnit : (vehicleType === 'Tractor' ? 'Tractor' : 'Gadi');
 
   const parsedLoading = parseFloat(loadingCharge) || 0;
   const parsedRent = parseFloat(rent) || 0;
   const parsedTrip = parseInt(trip, 10);
   const tripMultiplier = (!isNaN(parsedTrip) && parsedTrip > 0) ? parsedTrip : 1;
-  const totalAmount = parseFloat((((parsedQty * parsedPrice) - parsedLoading + parsedRent) * tripMultiplier).toFixed(2));
+  const baseAmount = parsedQty !== null ? (parsedQty * parsedPrice) : parsedPrice;
+  const totalAmount = parseFloat((((baseAmount) - parsedLoading + parsedRent) * tripMultiplier).toFixed(2));
   const finalSaleDate = saleDate || new Date().toISOString().split('T')[0];
 
   const newSale = await Sale.create({
@@ -409,11 +414,15 @@ export const updateSale = asyncHandler(async (req, res) => {
   }
 
   if (quantity !== undefined) {
-    const parsedQty = parseFloat(quantity);
-    if (isNaN(parsedQty) || parsedQty <= 0) {
-      throw new ApiError(400, 'Valid quantity greater than 0 is required.');
+    if (quantity === null || String(quantity).trim() === '') {
+      sale.quantity = null;
+    } else {
+      const parsedQty = parseFloat(quantity);
+      if (isNaN(parsedQty) || parsedQty <= 0) {
+        throw new ApiError(400, 'Valid quantity greater than 0 is required if provided.');
+      }
+      sale.quantity = parsedQty;
     }
-    sale.quantity = parsedQty;
   }
 
   if (price !== undefined) {
@@ -439,12 +448,15 @@ export const updateSale = asyncHandler(async (req, res) => {
     sale.paymentDate = paymentDate;
   }
 
-  if (unit) {
-    sale.unit = unit === 'Pcs' ? 'Pcs' : 'Ton';
+  if (unit !== undefined) {
+    sale.unit = ['Ton', 'Pcs', 'Gadi', 'Tractor'].includes(unit) ? unit : (unit || sale.unit);
+    if (['Gadi', 'Tractor'].includes(sale.unit)) {
+      sale.vehicleType = sale.unit;
+    }
   }
 
   if (vehicleType !== undefined) {
-    sale.vehicleType = vehicleType === 'Tractor' ? 'Tractor' : 'Gadi';
+    sale.vehicleType = ['Gadi', 'Tractor'].includes(vehicleType) ? vehicleType : sale.vehicleType;
   }
 
   if (loadingCharge !== undefined) {

@@ -145,26 +145,23 @@ export const Sale = sequelize.define(
     },
     quantity: {
       type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
+      allowNull: true,
+      defaultValue: null,
       validate: {
-        notNull: { msg: 'Quantity is required' },
-        isDecimal: { msg: 'Quantity must be a valid number' },
-        min: {
-          args: [0.01],
-          msg: 'Quantity must be greater than 0',
+        isValidQuantity(val) {
+          if (val !== null && val !== undefined && val !== '') {
+            const num = parseFloat(val);
+            if (isNaN(num) || num <= 0) {
+              throw new Error('Quantity must be greater than 0 if provided');
+            }
+          }
         },
       },
     },
     unit: {
-      type: DataTypes.ENUM('Ton', 'Pcs'),
-      allowNull: false,
+      type: DataTypes.STRING(50),
+      allowNull: true,
       defaultValue: 'Ton',
-      validate: {
-        isIn: {
-          args: [['Ton', 'Pcs']],
-          msg: 'Unit must be either Ton or Pcs',
-        },
-      },
     },
     price: {
       type: DataTypes.DECIMAL(12, 2),
@@ -215,13 +212,15 @@ export const Sale = sequelize.define(
     timestamps: true,
     hooks: {
       beforeSave: (sale) => {
-        const qty = parseFloat(sale.quantity) || 0;
+        const hasQty = sale.quantity !== null && sale.quantity !== undefined && !isNaN(parseFloat(sale.quantity)) && parseFloat(sale.quantity) > 0;
+        const qty = hasQty ? parseFloat(sale.quantity) : null;
         const prc = parseFloat(sale.price) || 0;
+        const base = qty !== null ? (qty * prc) : prc;
         const loading = parseFloat(sale.loadingCharge) || 0;
         const rent = parseFloat(sale.rent) || 0;
         const t = parseInt(sale.trip, 10);
         const tripMultiplier = (!isNaN(t) && t > 0) ? t : 1;
-        sale.totalAmount = parseFloat((((qty * prc) - loading + rent) * tripMultiplier).toFixed(2));
+        sale.totalAmount = parseFloat((((base) - loading + rent) * tripMultiplier).toFixed(2));
       },
     },
   }

@@ -160,6 +160,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
     quantity,
     unit,
     price,
+    loadingCharge,
+    rent,
     note,
     purchaseDate,
   } = req.body;
@@ -245,8 +247,12 @@ export const createPurchase = asyncHandler(async (req, res) => {
     }
   }
 
+  const parsedLoading = parseFloat(loadingCharge) || 0;
+  const parsedRent = parseFloat(rent) || 0;
+  const parsedTrip = parseInt(trip, 10);
+  const tripMultiplier = (!isNaN(parsedTrip) && parsedTrip > 0) ? parsedTrip : 1;
   const baseAmount = parsedQty !== null ? (parsedQty * parsedPrice) : parsedPrice;
-  const totalAmount = parseFloat(baseAmount.toFixed(2));
+  const totalAmount = parseFloat((((baseAmount) - parsedLoading + parsedRent) * tripMultiplier).toFixed(2));
   const finalPurchaseDate = purchaseDate || new Date().toISOString().split('T')[0];
 
   const newPurchase = await Purchase.create({
@@ -266,6 +272,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
     quantity: parsedQty,
     unit: validUnit,
     price: parsedPrice,
+    loadingCharge: parsedLoading,
+    rent: parsedRent,
     totalAmount,
     note: note && note.trim() ? note.trim() : null,
     purchaseDate: finalPurchaseDate,
@@ -306,6 +314,8 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     quantity,
     unit,
     price,
+    loadingCharge,
+    rent,
     note,
     purchaseDate,
   } = req.body;
@@ -422,6 +432,14 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     purchase.driverName = driverName ? driverName.trim() : null;
   }
 
+  if (loadingCharge !== undefined) {
+    purchase.loadingCharge = parseFloat(loadingCharge) || 0;
+  }
+
+  if (rent !== undefined) {
+    purchase.rent = parseFloat(rent) || 0;
+  }
+
   if (note !== undefined) {
     purchase.note = note && note.trim() ? note.trim() : null;
   }
@@ -434,7 +452,12 @@ export const updatePurchase = asyncHandler(async (req, res) => {
   const hasQty = purchase.quantity !== null && purchase.quantity !== undefined && !isNaN(parseFloat(purchase.quantity)) && parseFloat(purchase.quantity) > 0;
   const qty = hasQty ? parseFloat(purchase.quantity) : null;
   const prc = parseFloat(purchase.price) || 0;
-  purchase.totalAmount = parseFloat((qty !== null ? (qty * prc) : prc).toFixed(2));
+  const base = qty !== null ? (qty * prc) : prc;
+  const loading = parseFloat(purchase.loadingCharge) || 0;
+  const rnt = parseFloat(purchase.rent) || 0;
+  const t = parseInt(purchase.trip, 10);
+  const tripMultiplier = (!isNaN(t) && t > 0) ? t : 1;
+  purchase.totalAmount = parseFloat((((base) - loading + rnt) * tripMultiplier).toFixed(2));
 
   await purchase.save();
 

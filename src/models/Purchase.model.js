@@ -165,6 +165,16 @@ export const Purchase = sequelize.define(
         },
       },
     },
+    loadingCharge: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0.00,
+    },
+    rent: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0.00,
+    },
     totalAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
@@ -212,7 +222,11 @@ export const Purchase = sequelize.define(
         const qty = hasQty ? parseFloat(purchase.quantity) : null;
         const prc = parseFloat(purchase.price) || 0;
         const base = qty !== null ? (qty * prc) : prc;
-        purchase.totalAmount = parseFloat(base.toFixed(2));
+        const loading = parseFloat(purchase.loadingCharge) || 0;
+        const rent = parseFloat(purchase.rent) || 0;
+        const t = parseInt(purchase.trip, 10);
+        const tripMultiplier = (!isNaN(t) && t > 0) ? t : 1;
+        purchase.totalAmount = parseFloat((((base) - loading + rent) * tripMultiplier).toFixed(2));
       },
     },
   }

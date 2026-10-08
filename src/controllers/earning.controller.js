@@ -7,10 +7,13 @@ import Expense from '../models/Expense.model.js';
 import Vehicle from '../models/Vehicle.model.js';
 import Customer from '../models/Customer.model.js';
 import Supplier from '../models/Supplier.model.js';
+import Driver from '../models/Driver.model.js';
+import DriverSalary from '../models/DriverSalary.model.js';
+import DriverAdvance from '../models/DriverAdvance.model.js';
 
 /**
  * @desc Get comprehensive earnings, profit & loss analytics
- * Formula: Net Earning = Total Sales - Total Purchases - Total Expenses
+ * Formula: Net Earning = Total Sales - Total Purchases - Total Operating Expenses (Diesel + Driver Salary & Bhatta + Maintenance)
  * Supports: date range (startDate, endDate) & vehicleId filter
  * @route GET /api/v1/earnings
  * @access Public / Authenticated
@@ -22,32 +25,85 @@ export const getEarnings = asyncHandler(async (req, res) => {
   const saleWhere = {};
   const purchaseWhere = {};
   const expenseWhere = {};
+  const advanceWhere = {};
+  const salaryWhere = {};
 
   // Date range filter
   if (startDate && endDate) {
     saleWhere.saleDate = { [Op.between]: [startDate, endDate] };
     purchaseWhere.purchaseDate = { [Op.between]: [startDate, endDate] };
     expenseWhere.expenseDate = { [Op.between]: [startDate, endDate] };
+    advanceWhere.date = { [Op.between]: [startDate, endDate] };
+
+    const startMY = startDate.substring(0, 7);
+    const endMY = endDate.substring(0, 7);
+    salaryWhere[Op.or] = [
+      { paymentDate: { [Op.between]: [startDate, endDate] } },
+      { monthYear: { [Op.between]: [startMY, endMY] } },
+    ];
   } else if (startDate) {
     saleWhere.saleDate = { [Op.gte]: startDate };
     purchaseWhere.purchaseDate = { [Op.gte]: startDate };
     expenseWhere.expenseDate = { [Op.gte]: startDate };
+    advanceWhere.date = { [Op.gte]: startDate };
+
+    const startMY = startDate.substring(0, 7);
+    salaryWhere[Op.or] = [
+      { paymentDate: { [Op.gte]: startDate } },
+      { monthYear: { [Op.gte]: startMY } },
+    ];
   } else if (endDate) {
     saleWhere.saleDate = { [Op.lte]: endDate };
     purchaseWhere.purchaseDate = { [Op.lte]: endDate };
     expenseWhere.expenseDate = { [Op.lte]: endDate };
+    advanceWhere.date = { [Op.lte]: endDate };
+
+    const endMY = endDate.substring(0, 7);
+    salaryWhere[Op.or] = [
+      { paymentDate: { [Op.lte]: endDate } },
+      { monthYear: { [Op.lte]: endMY } },
+    ];
   }
 
   // Vehicle filter if provided
-  if (vehicleId && !isNaN(parseInt(vehicleId, 10))) {
-    const vId = parseInt(vehicleId, 10);
-    saleWhere.vehicleId = vId;
-    purchaseWhere.vehicleId = vId;
-    expenseWhere.vehicleId = vId;
+  const parsedVehicleId = vehicleId && !isNaN(parseInt(vehicleId, 10)) ? parseInt(vehicleId, 10) : null;
+  if (parsedVehicleId) {
+    saleWhere.vehicleId = parsedVehicleId;
+    purchaseWhere.vehicleId = parsedVehicleId;
+    expenseWhere.vehicleId = parsedVehicleId;
   }
 
-  // Query Sales, Purchases, Expenses, and all Vehicles concurrently
-  const [sales, purchases, expenses, allVehicles] = await Promise.all([
+  // Trip filter for period (to distribute driver salaries across vehicles proportionally)
+  const periodTripWhere = {};
+  if (startDate && endDate) {
+    periodTripWhere.saleDate = { [Op.between]: [startDate, endDate] };
+  } else if (startDate) {
+    periodTripWhere.saleDate = { [Op.gte]: startDate };
+  } else if (endDate) {
+    periodTripWhere.saleDate = { [Op.lte]: endDate };
+  }
+
+  const periodPurchaseTripWhere = {};
+  if (startDate && endDate) {
+    periodPurchaseTripWhere.purchaseDate = { [Op.between]: [startDate, endDate] };
+  } else if (startDate) {
+    periodPurchaseTripWhere.purchaseDate = { [Op.gte]: startDate };
+  } else if (endDate) {
+    periodPurchaseTripWhere.purchaseDate = { [Op.lte]: endDate };
+  }
+
+  // Query Sales, Purchases, Expenses, Vehicles, Drivers, Salaries, Advances concurrently
+  const [
+    sales,
+    purchases,
+    expenses,
+    allVehicles,
+    allDrivers,
+    driverSalaries,
+    driverAdvances,
+    allPeriodSales,
+    allPeriodPurchases,
+  ] = await Promise.all([
     Sale.findAll({
       where: saleWhere,
       include: [
@@ -75,9 +131,28 @@ export const getEarnings = asyncHandler(async (req, res) => {
       attributes: ['id', 'vehicleNumber', 'chassisNumber'],
       order: [['vehicleNumber', 'ASC']],
     }),
+    Driver.findAll({
+      order: [['name', 'ASC']],
+    }),
+    DriverSalary.findAll({
+      where: salaryWhere,
+      order: [['paymentDate', 'DESC']],
+    }),
+    DriverAdvance.findAll({
+      where: advanceWhere,
+      order: [['date', 'DESC']],
+    }),
+    Sale.findAll({
+      where: periodTripWhere,
+      attributes: ['id', 'vehicleId', 'driverId'],
+    }),
+    Purchase.findAll({
+      where: periodPurchaseTripWhere,
+      attributes: ['id', 'vehicleId', 'driverId'],
+    }),
   ]);
 
-  // Overall aggregations
+  // Overall Sales aggregations
   let totalSales = 0;
   let salesCash = 0;
   let salesOnline = 0;
@@ -94,6 +169,7 @@ export const getEarnings = asyncHandler(async (req, res) => {
     else salesPending += amt;
   });
 
+  // Overall Purchases aggregations
   let totalPurchases = 0;
   let purchasesCash = 0;
   let purchasesOnline = 0;
@@ -110,31 +186,159 @@ export const getEarnings = asyncHandler(async (req, res) => {
     else purchasesPending += amt;
   });
 
-  let totalExpenses = 0;
+  // Vehicle-specific daily expenses aggregations (Diesel, Driver Bhatta, Maintenance)
   let dieselTotal = 0;
-  let driverTotal = 0;
+  let driverBhattaTotal = 0;
   let maintenanceTotal = 0;
 
   expenses.forEach((e) => {
     const d = parseFloat(e.diesel) || 0;
     const dr = parseFloat(e.driver) || 0;
     const m = parseFloat(e.maintenance) || 0;
-    const tot = parseFloat(e.totalAmount) || (d + dr + m);
 
-    totalExpenses += tot;
     dieselTotal += d;
-    driverTotal += dr;
+    driverBhattaTotal += dr;
     maintenanceTotal += m;
   });
 
-  // Commercial formulas
+  // --------------------------------------------------------------------------
+  // 💰 DRIVER SALARIES & ADVANCES CALCULATION
+  // --------------------------------------------------------------------------
+  const driverVehicleTrips = {};
+  allDrivers.forEach((d) => {
+    driverVehicleTrips[d.id] = { total: 0, byVehicle: {} };
+  });
+
+  allPeriodSales.forEach((s) => {
+    if (s.driverId && driverVehicleTrips[s.driverId]) {
+      driverVehicleTrips[s.driverId].total += 1;
+      if (s.vehicleId) {
+        driverVehicleTrips[s.driverId].byVehicle[s.vehicleId] =
+          (driverVehicleTrips[s.driverId].byVehicle[s.vehicleId] || 0) + 1;
+      }
+    }
+  });
+
+  allPeriodPurchases.forEach((p) => {
+    if (p.driverId && driverVehicleTrips[p.driverId]) {
+      driverVehicleTrips[p.driverId].total += 1;
+      if (p.vehicleId) {
+        driverVehicleTrips[p.driverId].byVehicle[p.vehicleId] =
+          (driverVehicleTrips[p.driverId].byVehicle[p.vehicleId] || 0) + 1;
+      }
+    }
+  });
+
+  const isSingleDayOrShort = Boolean(startDate && endDate && startDate === endDate);
+  const driverSalaryBreakdown = [];
+  let totalCompanyDriverSalary = 0;
+  const vehicleDriverSalaryMap = {};
+  allVehicles.forEach((v) => {
+    vehicleDriverSalaryMap[v.id] = 0;
+  });
+
+  allDrivers.forEach((d) => {
+    const dSalaries = driverSalaries.filter((s) => s.driverId === d.id);
+    const dAdvances = driverAdvances.filter((a) => a.driverId === d.id);
+
+    let effectiveSalary = 0;
+    let settledAmount = 0;
+    let advanceAmount = 0;
+    let isSettled = false;
+
+    dAdvances.forEach((a) => {
+      advanceAmount += parseFloat(a.amount) || 0;
+    });
+
+    if (dSalaries.length > 0) {
+      isSettled = true;
+      dSalaries.forEach((s) => {
+        const amt =
+          parseFloat(s.grossEarned) ||
+          (parseFloat(s.paidAmount) || 0) + (parseFloat(s.totalUpadDeducted) || 0) ||
+          parseFloat(s.paidAmount) ||
+          0;
+        settledAmount += amt;
+      });
+      const unsettledAdv = dAdvances
+        .filter((a) => !a.isSettled)
+        .reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+      effectiveSalary = settledAmount + unsettledAdv;
+    } else {
+      const baseSal = parseFloat(d.baseSalary) || 0;
+      if (isSingleDayOrShort) {
+        effectiveSalary = advanceAmount;
+      } else {
+        if (baseSal > 0) {
+          effectiveSalary = Math.max(baseSal, advanceAmount);
+        } else {
+          effectiveSalary = advanceAmount;
+        }
+      }
+    }
+
+    effectiveSalary = parseFloat(effectiveSalary.toFixed(2));
+    totalCompanyDriverSalary += effectiveSalary;
+
+    // Distribute this driver's salary to vehicles
+    const tripInfo = driverVehicleTrips[d.id];
+    const assignedVehicleNames = [];
+
+    if (tripInfo && tripInfo.total > 0 && effectiveSalary > 0) {
+      Object.entries(tripInfo.byVehicle).forEach(([vId, count]) => {
+        const fraction = count / tripInfo.total;
+        const allocated = effectiveSalary * fraction;
+        if (vehicleDriverSalaryMap[vId] !== undefined) {
+          vehicleDriverSalaryMap[vId] += allocated;
+        }
+        const vehObj = allVehicles.find((v) => String(v.id) === String(vId));
+        if (vehObj) assignedVehicleNames.push(`${vehObj.vehicleNumber} (${count})`);
+      });
+    } else if (allVehicles.length > 0 && effectiveSalary > 0) {
+      const equalShare = effectiveSalary / allVehicles.length;
+      allVehicles.forEach((v) => {
+        vehicleDriverSalaryMap[v.id] += equalShare;
+      });
+    }
+
+    if (effectiveSalary > 0 || parseFloat(d.baseSalary) > 0 || advanceAmount > 0) {
+      driverSalaryBreakdown.push({
+        driverId: d.id,
+        driverName: d.name,
+        salaryType: d.salaryType,
+        baseSalary: parseFloat((parseFloat(d.baseSalary) || 0).toFixed(2)),
+        settledAmount: parseFloat(settledAmount.toFixed(2)),
+        advanceAmount: parseFloat(advanceAmount.toFixed(2)),
+        effectiveSalary,
+        isSettled,
+        tripsCount: tripInfo ? tripInfo.total : 0,
+        assignedVehicles: assignedVehicleNames,
+      });
+    }
+  });
+
+  totalCompanyDriverSalary = parseFloat(totalCompanyDriverSalary.toFixed(2));
+
+  // Determine driver salary applicable for current view
+  const driverSalaryTotal = parsedVehicleId
+    ? parseFloat((vehicleDriverSalaryMap[parsedVehicleId] || 0).toFixed(2))
+    : totalCompanyDriverSalary;
+
+  // Combined Driver Total (Salary + Daily Bhatta)
+  const combinedDriverTotal = parseFloat((driverBhattaTotal + driverSalaryTotal).toFixed(2));
+
+  // Total Expenses = Diesel + Maintenance + Driver (Salary + Bhatta)
+  const totalExpenses = parseFloat((dieselTotal + maintenanceTotal + combinedDriverTotal).toFixed(2));
+
+  // Commercial Formulas
   const grossProfit = parseFloat((totalSales - totalPurchases).toFixed(2));
   const netEarning = parseFloat((totalSales - totalPurchases - totalExpenses).toFixed(2));
 
-  // Vehicle-wise statistics computation
+  // --------------------------------------------------------------------------
+  // 🚛 VEHICLE-WISE PERFORMANCE COMPUTATION
+  // --------------------------------------------------------------------------
   const vehicleStatsMap = {};
 
-  // Initialize for all active vehicles
   allVehicles.forEach((v) => {
     vehicleStatsMap[v.id] = {
       vehicleId: v.id,
@@ -145,11 +349,14 @@ export const getEarnings = asyncHandler(async (req, res) => {
       purchasesAmount: 0,
       purchasesCount: 0,
       dieselAmount: 0,
+      driverBhattaAmount: 0,
+      driverSalaryAmount: parseFloat((vehicleDriverSalaryMap[v.id] || 0).toFixed(2)),
       driverAmount: 0,
       maintenanceAmount: 0,
       totalExpenses: 0,
       expensesCount: 0,
       netEarning: 0,
+      isProfit: true,
     };
   });
 
@@ -171,42 +378,46 @@ export const getEarnings = asyncHandler(async (req, res) => {
     }
   });
 
-  // Tally Expenses per vehicle
+  // Tally Daily Expenses per vehicle
   expenses.forEach((e) => {
     if (e.vehicleId && vehicleStatsMap[e.vehicleId]) {
       const d = parseFloat(e.diesel) || 0;
       const dr = parseFloat(e.driver) || 0;
       const m = parseFloat(e.maintenance) || 0;
-      const tot = parseFloat(e.totalAmount) || (d + dr + m);
 
       vehicleStatsMap[e.vehicleId].dieselAmount += d;
-      vehicleStatsMap[e.vehicleId].driverAmount += dr;
+      vehicleStatsMap[e.vehicleId].driverBhattaAmount += dr;
       vehicleStatsMap[e.vehicleId].maintenanceAmount += m;
-      vehicleStatsMap[e.vehicleId].totalExpenses += tot;
       vehicleStatsMap[e.vehicleId].expensesCount += 1;
     }
   });
 
-  // Compute Net Earning per vehicle
+  // Compute final Net Earning per vehicle
   const vehicleStatsList = Object.values(vehicleStatsMap).map((item) => {
-    const net = item.salesAmount - item.purchasesAmount - item.totalExpenses;
+    const vDriverTotal = parseFloat((item.driverBhattaAmount + item.driverSalaryAmount).toFixed(2));
+    const vTotalExp = parseFloat(
+      (item.dieselAmount + vDriverTotal + item.maintenanceAmount).toFixed(2)
+    );
+    const vNet = parseFloat((item.salesAmount - item.purchasesAmount - vTotalExp).toFixed(2));
+
     return {
       ...item,
       salesAmount: parseFloat(item.salesAmount.toFixed(2)),
       purchasesAmount: parseFloat(item.purchasesAmount.toFixed(2)),
       dieselAmount: parseFloat(item.dieselAmount.toFixed(2)),
-      driverAmount: parseFloat(item.driverAmount.toFixed(2)),
+      driverBhattaAmount: parseFloat(item.driverBhattaAmount.toFixed(2)),
+      driverSalaryAmount: parseFloat(item.driverSalaryAmount.toFixed(2)),
+      driverAmount: vDriverTotal,
       maintenanceAmount: parseFloat(item.maintenanceAmount.toFixed(2)),
-      totalExpenses: parseFloat(item.totalExpenses.toFixed(2)),
-      netEarning: parseFloat(net.toFixed(2)),
-      isProfit: net >= 0,
+      totalExpenses: vTotalExp,
+      netEarning: vNet,
+      isProfit: vNet >= 0,
     };
   });
 
-  // Filter vehicle list if single vehicle filter is selected
   let filteredVehicleList = vehicleStatsList;
-  if (vehicleId) {
-    filteredVehicleList = vehicleStatsList.filter((v) => String(v.vehicleId) === String(vehicleId));
+  if (parsedVehicleId) {
+    filteredVehicleList = vehicleStatsList.filter((v) => String(v.vehicleId) === String(parsedVehicleId));
   }
 
   const result = {
@@ -214,9 +425,11 @@ export const getEarnings = asyncHandler(async (req, res) => {
       totalSales: parseFloat(totalSales.toFixed(2)),
       totalPurchases: parseFloat(totalPurchases.toFixed(2)),
       grossProfit,
-      totalExpenses: parseFloat(totalExpenses.toFixed(2)),
+      totalExpenses,
       dieselTotal: parseFloat(dieselTotal.toFixed(2)),
-      driverTotal: parseFloat(driverTotal.toFixed(2)),
+      driverBhattaTotal: parseFloat(driverBhattaTotal.toFixed(2)),
+      driverSalaryTotal: parseFloat(driverSalaryTotal.toFixed(2)),
+      driverTotal: combinedDriverTotal,
       maintenanceTotal: parseFloat(maintenanceTotal.toFixed(2)),
       netEarning,
       isProfit: netEarning >= 0,
@@ -232,11 +445,12 @@ export const getEarnings = asyncHandler(async (req, res) => {
       purchasesPaid: parseFloat(purchasesPaid.toFixed(2)),
       purchasesPending: parseFloat(purchasesPending.toFixed(2)),
     },
+    driverSalaryBreakdown,
     vehicleStats: filteredVehicleList,
     filters: {
       startDate: startDate || null,
       endDate: endDate || null,
-      vehicleId: vehicleId || null,
+      vehicleId: parsedVehicleId ? String(parsedVehicleId) : null,
     },
   };
 

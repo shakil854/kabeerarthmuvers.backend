@@ -104,6 +104,7 @@ export const getSales = asyncHandler(async (req, res) => {
       { paymentMode: { [Op.like]: term } },
       { paymentStatus: { [Op.like]: term } },
       { note: { [Op.like]: term } },
+      { detail: { [Op.like]: term } },
     ];
   }
 
@@ -168,6 +169,7 @@ export const createSale = asyncHandler(async (req, res) => {
     loadingCharge,
     rent,
     note,
+    detail,
     saleDate,
   } = req.body;
 
@@ -287,6 +289,7 @@ export const createSale = asyncHandler(async (req, res) => {
     rent: parsedRent,
     totalAmount,
     note: note && note.trim() ? note.trim() : null,
+    detail: detail && detail.trim() ? detail.trim() : null,
     saleDate: finalSaleDate,
   });
 
@@ -326,6 +329,7 @@ export const updateSale = asyncHandler(async (req, res) => {
     loadingCharge,
     rent,
     note,
+    detail,
     saleDate,
   } = req.body;
 
@@ -469,6 +473,10 @@ export const updateSale = asyncHandler(async (req, res) => {
 
   if (note !== undefined) {
     sale.note = note && note.trim() ? note.trim() : null;
+  }
+
+  if (detail !== undefined) {
+    sale.detail = detail && detail.trim() ? detail.trim() : null;
   }
 
   if (saleDate) {

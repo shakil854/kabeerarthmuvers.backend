@@ -201,6 +201,17 @@ export const Sale = sequelize.define(
         );
       },
     },
+    detail: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      set(value) {
+        this.setDataValue(
+          'detail',
+          typeof value === 'string' && value.trim() ? value.trim() : null
+        );
+      },
+    },
     saleDate: {
       type: DataTypes.DATEONLY,
       allowNull: false,

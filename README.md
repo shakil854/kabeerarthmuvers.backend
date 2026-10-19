@@ -47,7 +47,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The server runs by default on `http://localhost:5000`.
+The server runs by default on `http://localhost:5002`.
 
 ### 4. API Endpoints
 - **Root**: `GET /`
